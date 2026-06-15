@@ -1,0 +1,7 @@
+output/
+state/
+__pycache__/
+.playwright-mcp/
+*.pyc
+.DS_Store
+.venv/

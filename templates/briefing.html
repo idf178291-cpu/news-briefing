@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宏观形势及监管动态每日简报 — {{ date_str }}</title>
+<style>
+/* ===================================================================
+   Design System — Slate Executive
+   =================================================================== */
+:root {
+  /* palette — cool-slate, data-first */
+  --ink: #1e2028;
+  --ink-secondary: #5c606e;
+  --ink-tertiary: #9499a5;
+  --paper: #f2f3f6;
+  --surface: #ffffff;
+  --surface-raised: #f7f8fb;
+  --divider: #e4e6ec;
+  --divider-strong: #cdd0d8;
+
+  /* accent — used sparingly for data calls */
+  --accent-up: #0d7a4a;
+  --accent-down: #b8323a;
+  --accent-neutral: #1d4ed8;
+  --accent-warn: #b45309;
+  --accent-info: #4f46e5;
+
+  /* source colors */
+  --src-pbc: #b45309;
+  --src-mof: #0d9488;
+  --src-nfra: #7c3aed;
+  --src-csrc: #dc2626;
+  --src-stats: #2563eb;
+
+  /* spacing */
+  --gap-xs: 4px;
+  --gap-sm: 8px;
+  --gap-md: 16px;
+  --gap-lg: 24px;
+  --gap-xl: 32px;
+  --gap-2xl: 48px;
+
+  /* typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "JetBrains Mono", "Cascadia Code", monospace;
+  --font-display: "SF Pro Display", -apple-system, "PingFang SC", serif;
+
+  /* radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* shadows */
+  --shadow-card: 0 1px 4px rgba(0,0,0,0.05);
+  --shadow-card-hover: 0 6px 20px rgba(0,0,0,0.09);
+  --shadow-overview: 0 2px 10px rgba(0,0,0,0.06);
+
+  /* transitions */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+}
+
+/* ── Reset & Base ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.container { max-width: 1200px; margin: 0 auto; padding: var(--gap-xl) var(--gap-lg); }
+
+/* ── Typography ─────────────────────────────────────────── */
+h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.01em; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 0.95rem; }
+.mono { font-family: var(--font-mono); font-size: 0.88em; }
+.tnum { font-feature-settings: "tnum"; font-variant-numeric: tabular-nums; }
+.text-secondary { color: var(--ink-secondary); }
+.text-tertiary { color: var(--ink-tertiary); }
+
+/* ── Trend Arrows ────────────────────────────────────────── */
+.trend-up, .trend-down, .trend-flat {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-weight: 600; font-size: 0.85em;
+}
+.trend-up { color: var(--accent-up); }
+.trend-down { color: var(--accent-down); }
+.trend-flat { color: var(--ink-tertiary); }
+.trend-up::before { content: "▲"; font-size: 0.7em; animation: pulse-up 2s ease-in-out infinite; }
+.trend-down::before { content: "▼"; font-size: 0.7em; animation: pulse-down 2s ease-in-out infinite; }
+.trend-flat::before { content: "→"; font-size: 0.7em; }
+@keyframes pulse-up {
+  0%, 100% { opacity: 0.7; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-1px); }
+}
+@keyframes pulse-down {
+  0%, 100% { opacity: 0.7; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(1px); }
+}
+
+/* ===================================================================
+   HEADER
+   =================================================================== */
+.briefing-header {
+  padding-bottom: var(--gap-lg);
+  margin-bottom: var(--gap-xl);
+  border-bottom: 2px solid var(--ink);
+}
+.briefing-header .header-top {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  flex-wrap: wrap; gap: var(--gap-md);
+}
+.briefing-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.7rem; font-weight: 700;
+  letter-spacing: -0.02em; color: var(--ink);
+}
+.briefing-header .header-meta {
+  display: flex; gap: var(--gap-lg); align-items: center;
+  color: var(--ink-secondary); font-size: 0.88rem;
+}
+.header-meta-item { display: flex; align-items: center; gap: var(--gap-xs); }
+.header-meta-item .label { color: var(--ink-tertiary); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.header-meta-item .value { font-weight: 600; font-feature-settings: "tnum"; }
+.header-divider { width: 4px; height: 16px; background: var(--ink-tertiary); opacity: 0.3; border-radius: 2px; }
+
+/* ===================================================================
+   OVERVIEW STRIP
+   =================================================================== */
+.overview-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--gap-sm);
+  margin-bottom: var(--gap-xl);
+}
+.overview-tile {
+  display: flex; flex-direction: column; gap: var(--gap-xs);
+  background: var(--surface); border: 1px solid var(--divider);
+  border-radius: var(--radius-md); padding: var(--gap-md);
+  text-decoration: none; color: inherit; cursor: pointer;
+  transition: box-shadow var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+  position: relative; overflow: hidden;
+}
+.overview-tile::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--tile-accent, var(--divider));
+  transition: height var(--duration-fast) var(--ease-out);
+}
+.overview-tile:hover {
+  box-shadow: var(--shadow-overview);
+  transform: translateY(-1px);
+  border-color: var(--divider-strong);
+}
+.overview-tile:hover::before { height: 4px; }
+.overview-tile .tile-label {
+  font-size: 0.75rem; font-weight: 500; color: var(--ink-tertiary);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.overview-tile .tile-count {
+  font-size: 2.2rem; font-weight: 800; line-height: 1;
+  font-feature-settings: "tnum"; color: var(--tile-accent, var(--ink));
+}
+.overview-tile .tile-sub {
+  font-size: 0.78rem; color: var(--ink-tertiary);
+}
+
+/* ===================================================================
+   SOURCE BLOCK
+   =================================================================== */
+.source-block {
+  margin-bottom: var(--gap-2xl);
+}
+.source-block-header {
+  display: flex; align-items: center; gap: var(--gap-md);
+  padding: var(--gap-sm) var(--gap-md); margin-bottom: var(--gap-lg);
+  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--src-accent, var(--divider-strong));
+}
+.source-block-header .source-dot {
+  display: none;
+}
+.source-block-header .source-name {
+  font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em;
+}
+.source-block-header .source-count {
+  margin-left: auto; font-size: 0.8rem; color: var(--ink-tertiary);
+  font-weight: 500;
+}
+
+/* section sub-head */
+.section-label {
+  font-size: 0.75rem; font-weight: 600; color: var(--ink-tertiary);
+  text-transform: uppercase; letter-spacing: 0.07em;
+  padding: var(--gap-sm) 0 var(--gap-xs);
+  margin-bottom: var(--gap-xs);
+  border-bottom: 1px dotted var(--divider);
+}
+
+/* ===================================================================
+   ARTICLE CARD
+   =================================================================== */
+.article-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--gap-xs);
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md);
+  padding: var(--gap-lg);
+  margin-bottom: var(--gap-sm);
+  transition: box-shadow var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+  position: relative;
+}
+.article-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--divider-strong);
+}
+.article-card .card-accent {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  background: var(--card-accent-color, var(--divider));
+}
+
+/* card header row */
+.card-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--gap-md); flex-wrap: wrap;
+}
+.card-title {
+  font-size: 1.02rem; font-weight: 600; line-height: 1.45; flex: 1; min-width: 0;
+}
+.card-title a { color: var(--ink); text-decoration: none; }
+.card-title a:hover { text-decoration: underline; text-underline-offset: 3px; color: var(--accent-neutral); }
+
+/* meta chips */
+.card-meta {
+  display: flex; align-items: center; gap: var(--gap-sm); flex-shrink: 0;
+  font-size: 0.78rem; flex-wrap: wrap;
+}
+.card-date { color: var(--ink-tertiary); font-feature-settings: "tnum"; }
+.card-badge {
+  display: inline-block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.03em;
+  padding: 2px 8px; border-radius: 3px;
+}
+.card-badge.pbc  { background: rgba(180,83,9,0.1);  color: var(--src-pbc); }
+.card-badge.mof  { background: rgba(13,148,136,0.1);  color: var(--src-mof); }
+.card-badge.nfra { background: rgba(124,58,237,0.1);  color: var(--src-nfra); }
+.card-badge.csrc { background: rgba(220,38,38,0.1);  color: var(--src-csrc); }
+.card-badge.stats{ background: rgba(37,99,235,0.1);  color: var(--src-stats); }
+
+/* tags */
+.card-tags { display: flex; gap: var(--gap-xs); flex-wrap: wrap; }
+.tag-chip {
+  display: inline-block; font-size: 0.68rem; font-weight: 600;
+  padding: 2px 10px; border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+.tag-领导讲话 { background: rgba(217,119,6,0.08); color: #b45309; }
+.tag-对外交流 { background: rgba(37,99,235,0.08); color: #1d4ed8; }
+.tag-政策发布 { background: rgba(9,133,81,0.08); color: #065f46; }
+.tag-政策解读 { background: rgba(99,102,241,0.08); color: #5b21b6; }
+.tag-数据发布 { background: rgba(37,99,235,0.07); color: #1e40af; }
+.tag-监管动态 { background: rgba(220,38,38,0.08); color: #991b1b; }
+.tag-人事任免 { background: rgba(217,119,6,0.06); color: #9a3412; }
+.tag-会议纪要 { background: rgba(107,114,128,0.08); color: #4b5563; }
+.tag-通知公告 { background: rgba(202,138,4,0.08); color: #854d0e; }
+.tag-国际合作 { background: rgba(37,99,235,0.06); color: #1e40af; }
+.tag-新闻发布 { background: rgba(220,38,38,0.06); color: #b91c1c; }
+.tag-统计数据 { background: rgba(217,119,6,0.06); color: #92400e; }
+.tag-数据解读 { background: rgba(99,102,241,0.06); color: #4f46e5; }
+.tag-统计信息 { background: rgba(37,99,235,0.06); color: #1d4ed8; }
+.tag-统计动态 { background: rgba(219,39,119,0.06); color: #9f1239; }
+.tag-财政新闻 { background: rgba(13,148,136,0.06); color: #0f766e; }
+.tag-证监会要闻 { background: rgba(220,38,38,0.06); color: #b91c1c; }
+
+/* body content */
+.card-core-event {
+  font-size: 0.88rem; font-weight: 600; color: var(--ink);
+  padding-left: var(--gap-md); border-left: 2px solid var(--divider-strong);
+  margin: var(--gap-xs) 0;
+}
+.card-key-points {
+  margin: var(--gap-xs) 0; padding-left: 1.4rem;
+  font-size: 0.85rem; color: var(--ink-secondary); line-height: 1.7;
+}
+.card-key-points li { margin-bottom: 2px; }
+.card-key-points li::marker { color: var(--ink-tertiary); }
+.card-summary {
+  margin-top: var(--gap-sm); padding-top: var(--gap-md);
+  border-top: 1px solid var(--divider);
+  font-size: 0.88rem; line-height: 1.75; color: var(--ink);
+}
+.card-source-link { margin-top: var(--gap-sm); font-size: 0.8rem; }
+.card-source-link a { color: var(--ink-tertiary); text-decoration: none; font-weight: 500; transition: color var(--duration-fast); }
+.card-source-link a:hover { color: var(--accent-neutral); }
+
+/* ===================================================================
+   FOOTER
+   =================================================================== */
+.briefing-footer {
+  margin-top: var(--gap-2xl); padding-top: var(--gap-lg);
+  border-top: 1px solid var(--divider);
+  display: flex; justify-content: space-between; flex-wrap: wrap;
+  gap: var(--gap-md);
+  font-size: 0.78rem; color: var(--ink-tertiary);
+}
+.briefing-footer .disclaimer { max-width: 500px; line-height: 1.6; }
+
+/* ===================================================================
+   RESPONSIVE
+   =================================================================== */
+@media (max-width: 768px) {
+  .container { padding: var(--gap-md); }
+  .briefing-header h1 { font-size: 1.35rem; }
+  .overview-strip { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .overview-tile { padding: var(--gap-sm) var(--gap-md); }
+  .overview-tile .tile-count { font-size: 1.7rem; }
+  .article-card { padding: var(--gap-md); }
+  .card-header { flex-direction: column; }
+  .card-title { font-size: 0.95rem; }
+}
+@media (max-width: 480px) {
+  .overview-strip { grid-template-columns: repeat(2, 1fr); }
+  .briefing-header h1 { font-size: 1.2rem; }
+}
+
+/* ===================================================================
+   PDF MODE — compact single-sheet via screen media
+   =================================================================== */
+body.pdf-mode {
+  background: #f2f3f6 !important;
+  font-size: 9.5pt !important;
+  color: #1e2028;
+}
+body.pdf-mode .container { max-width: 100%; padding: 0; }
+
+/* header */
+body.pdf-mode .briefing-header {
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1.5px solid #1e2028;
+}
+body.pdf-mode .briefing-header h1 { font-size: 1.15rem; }
+body.pdf-mode .briefing-header .header-meta { font-size: 0.72rem; gap: 12px; }
+body.pdf-mode .header-meta-item .label { font-size: 0.6rem; }
+body.pdf-mode .header-divider { height: 12px; width: 2px; background: #9499a5; }
+
+/* overview strip */
+body.pdf-mode .overview-strip {
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin-bottom: 12px;
+}
+body.pdf-mode .overview-tile {
+  padding: 6px 8px;
+  background: #ffffff;
+  border: 1px solid #e4e6ec;
+  box-shadow: none;
+  gap: 2px;
+  transform: none !important;
+}
+body.pdf-mode .overview-tile::before { height: 2px; }
+body.pdf-mode .overview-tile:hover { box-shadow: none; transform: none; }
+body.pdf-mode .overview-tile:hover::before { height: 2px; }
+body.pdf-mode .overview-tile .tile-label { font-size: 0.55rem; color: #9499a5; }
+body.pdf-mode .overview-tile .tile-count { font-size: 1.3rem; }
+body.pdf-mode .overview-tile .tile-sub { font-size: 0.6rem; color: #9499a5; }
+
+/* source block */
+body.pdf-mode .source-block { margin-bottom: 14px; }
+body.pdf-mode .source-block-header {
+  padding: 5px 10px;
+  margin-bottom: 8px;
+  gap: 8px;
+  background: #f7f8fb;
+  border-radius: 4px;
+}
+body.pdf-mode .source-block-header .source-name { font-size: 0.9rem; }
+body.pdf-mode .source-block-header .source-count { font-size: 0.65rem; }
+
+body.pdf-mode .section-label {
+  font-size: 0.6rem;
+  padding: 4px 0 2px;
+  margin-bottom: 2px;
+}
+
+/* article card */
+body.pdf-mode .article-card {
+  padding: 8px 10px 8px 14px;
+  margin-bottom: 4px;
+  background: #ffffff;
+  box-shadow: none;
+  border: 1px solid #e4e6ec;
+  gap: 2px;
+}
+body.pdf-mode .article-card:hover { box-shadow: none; border-color: #e4e6ec; }
+body.pdf-mode .article-card .card-accent { width: 3px; }
+
+body.pdf-mode .card-header { gap: 8px; }
+body.pdf-mode .card-title { font-size: 0.82rem; line-height: 1.35; }
+body.pdf-mode .card-title a { pointer-events: none; }
+body.pdf-mode .card-meta { font-size: 0.6rem; gap: 4px; }
+body.pdf-mode .card-badge { font-size: 0.55rem; padding: 1px 6px; }
+
+body.pdf-mode .card-tags { gap: 3px; }
+body.pdf-mode .tag-chip { font-size: 0.55rem; padding: 1px 7px; }
+
+body.pdf-mode .card-core-event {
+  font-size: 0.7rem;
+  padding-left: 8px;
+  margin: 2px 0;
+}
+body.pdf-mode .card-key-points {
+  font-size: 0.68rem;
+  padding-left: 1rem;
+  line-height: 1.45;
+  margin: 2px 0;
+}
+body.pdf-mode .card-key-points li { margin-bottom: 0; }
+body.pdf-mode .card-summary {
+  font-size: 0.72rem;
+  line-height: 1.5;
+  margin-top: 4px;
+  padding-top: 6px;
+}
+
+body.pdf-mode .card-source-link { display: none; }
+
+/* footer */
+body.pdf-mode .briefing-footer {
+  margin-top: 16px;
+  padding-top: 8px;
+  font-size: 0.6rem;
+}
+
+/* ===================================================================
+   PRINT — browser print fallback
+   =================================================================== */
+@media print {
+  @page { size: A4 portrait; margin: 10mm 8mm; }
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body { font-size: 9.5pt; }
+  .container { max-width: 100%; padding: 0; }
+  .briefing-header { padding-bottom: 8px; margin-bottom: 12px; }
+  .briefing-header h1 { font-size: 1.15rem; }
+  .overview-strip { grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 12px; }
+  .overview-tile { padding: 6px 8px; box-shadow: none; }
+  .overview-tile:hover { box-shadow: none; transform: none; }
+  .article-card { padding: 8px 10px 8px 14px; margin-bottom: 4px; box-shadow: none; }
+  .article-card:hover { box-shadow: none; }
+  .card-source-link { display: none; }
+  .briefing-footer { margin-top: 16px; padding-top: 8px; font-size: 0.6rem; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ================================================================
+       HEADER
+       ================================================================ -->
+  <header class="briefing-header">
+    <div class="header-top">
+      <h1>宏观形势及监管动态每日简报</h1>
+      <div class="header-meta">
+        <div class="header-meta-item">
+          <span class="label">日期</span>
+          <span class="value">{{ date_str }}</span>
+        </div>
+        <div class="header-divider"></div>
+        <div class="header-meta-item">
+          <span class="label">数据源</span>
+          <span class="value">{{ sources|length }} 个机构</span>
+        </div>
+        <div class="header-divider"></div>
+        <div class="header-meta-item">
+          <span class="label">文章</span>
+          <span class="value">{{ total_articles }} 篇</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  {% if total_articles == 0 %}
+  <div style="text-align:center;padding:4rem 2rem;color:var(--ink-tertiary);">
+    本周期内无新增文章。所有数据源在时间窗口内未发现新内容。
+  </div>
+  {% else %}
+
+  <!-- ================================================================
+       OVERVIEW STRIP
+       ================================================================ -->
+  <nav class="overview-strip">
+    {% for src in sources %}
+    <a class="overview-tile" href="#src-{{ src.slug }}" style="--tile-accent: var(--src-{{ src.slug }})">
+      <span class="tile-label">{{ src.name }}</span>
+      <span class="tile-count tnum">{{ src.article_count }}</span>
+      <span class="tile-sub">篇新文章</span>
+    </a>
+    {% endfor %}
+  </nav>
+
+  <!-- ================================================================
+       SOURCE BLOCKS
+       ================================================================ -->
+  {% for src in sources %}
+  {% if src.sections %}
+  <section class="source-block" id="src-{{ src.slug }}">
+    <div class="source-block-header" style="--src-accent: var(--src-{{ src.slug }})">
+      <span class="source-name">{{ src.name }}</span>
+      <span class="source-count">{{ src.article_count }} 篇文章</span>
+    </div>
+
+    {% for sec in src.sections %}
+    {% if sec.articles %}
+    <div class="section-label">{{ sec.name }} · {{ sec.articles|length }} 篇</div>
+
+    {% for item in sec.articles %}
+    <article class="article-card" style="--card-accent-color: var(--src-{{ src.slug }})">
+      <div class="card-accent"></div>
+
+      <div class="card-header">
+        <div class="card-title">
+          <a href="{{ item.url }}" target="_blank">{{ item.title }}</a>
+        </div>
+        <div class="card-meta">
+          <span class="card-date tnum">{{ item.date_str }}</span>
+          <span class="card-badge {{ src.slug }}">{{ item.section }}</span>
+        </div>
+      </div>
+
+      {% if item.tags %}
+      <div class="card-tags">
+        {% for tag in item.tags %}
+        <span class="tag-chip tag-{{ tag }}">{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if item.core_event %}
+      <div class="card-core-event">{{ item.core_event }}</div>
+      {% endif %}
+
+      {% if item.key_points %}
+      <ul class="card-key-points">
+        {% for kp in item.key_points %}
+        <li>{{ kp }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      <div class="card-summary">{{ item.summary }}</div>
+
+      <div class="card-source-link">
+        <a href="{{ item.url }}" target="_blank">查看原文 →</a>
+      </div>
+    </article>
+    {% endfor %}
+
+    {% endif %}
+    {% endfor %}
+
+  </section>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+
+  <!-- ================================================================
+       FOOTER
+       ================================================================ -->
+  <footer class="briefing-footer">
+    <div class="disclaimer">
+      本简报由AI自动生成，数据来源于各监管机构官方网站，仅供内部参考。
+    </div>
+    <div>
+      生成时间: {{ generated_at }}<br>
+      国家统计局 · 财政部 · 人民银行 · 金融监管总局 · 证监会
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>
