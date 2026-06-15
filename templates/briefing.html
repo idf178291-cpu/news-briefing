@@ -536,7 +536,7 @@ body.pdf-mode .briefing-footer {
 
       <div class="card-header">
         <div class="card-title">
-          <a href="{{ item.url }}" target="_blank">{{ item.title }}</a>
+          <a href="{{ item.url | safe_url }}" target="_blank">{{ item.title }}</a>
         </div>
         <div class="card-meta">
           <span class="card-date tnum">{{ item.date_str }}</span>
@@ -567,7 +567,7 @@ body.pdf-mode .briefing-footer {
       <div class="card-summary">{{ item.summary }}</div>
 
       <div class="card-source-link">
-        <a href="{{ item.url }}" target="_blank">查看原文 →</a>
+        <a href="{{ item.url | safe_url }}" target="_blank">查看原文 →</a>
       </div>
     </article>
     {% endfor %}

@@ -2,7 +2,7 @@
 
 import os
 from datetime import datetime
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sources.base import BriefingItem
 
 
@@ -12,8 +12,9 @@ class Renderer:
             template_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
         self.env = Environment(
             loader=FileSystemLoader(os.path.abspath(template_dir)),
-            autoescape=False,
+            autoescape=select_autoescape(["html"]),
         )
+        self.env.filters["safe_url"] = self._safe_url
 
     def render(self, items_by_source: list[dict], output_path: str, display_date: str | None = None):
         """Render briefing items grouped by source to an HTML file.
@@ -63,6 +64,16 @@ class Renderer:
         self._png_to_pdf(png_path, output_path)
         os.unlink(png_path)
         return output_path
+
+    @staticmethod
+    def _safe_url(url: str) -> str:
+        """Only allow http/https URLs; strip javascript: and other dangerous schemes."""
+        if not isinstance(url, str):
+            return ""
+        u = url.strip()
+        if u.lower().startswith(("http://", "https://")):
+            return u
+        return ""
 
     @staticmethod
     def _png_to_pdf(png_path: str, output_path: str):
