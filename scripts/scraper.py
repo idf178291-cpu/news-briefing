@@ -5,8 +5,9 @@ from bs4 import BeautifulSoup
 
 
 class Scraper:
-    def __init__(self, headless: bool = True):
+    def __init__(self, headless: bool = True, timeout: int = 30000):
         self.headless = headless
+        self.timeout = timeout
         self._playwright = None
         self._browser: Browser | None = None
         self._page_pool: list[Page] = []
@@ -44,7 +45,7 @@ class Scraper:
 
     def navigate(self, page: Page, url: str, wait_ms: int = 1000) -> str:
         """Navigate existing page to url, return HTML. Much faster than new_page+close."""
-        page.goto(url, wait_until="domcontentloaded", timeout=15000)
+        page.goto(url, wait_until="commit", timeout=self.timeout)
         page.wait_for_timeout(wait_ms)
         return page.content()
 
@@ -57,7 +58,7 @@ class Scraper:
         """
         page: Page = self._browser.new_page()
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=15000)
+            page.goto(url, wait_until="commit", timeout=self.timeout)
             if wait_for:
                 selectors = [wait_for] if isinstance(wait_for, str) else wait_for
                 found = False
@@ -81,7 +82,7 @@ class Scraper:
         """For 'load more' pagination: click button N times, return final HTML."""
         page: Page = self._browser.new_page()
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=15000)
+            page.goto(url, wait_until="commit", timeout=self.timeout)
             page.wait_for_timeout(wait_ms)
             for _ in range(clicks):
                 try:
@@ -103,7 +104,7 @@ class Scraper:
         results = []
         page: Page = self._browser.new_page()
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=15000)
+            page.goto(url, wait_until="commit", timeout=self.timeout)
             page.wait_for_timeout(wait_ms)
             results.append(page.content())
             for _ in range(pages - 1):

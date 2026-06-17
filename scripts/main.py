@@ -285,10 +285,9 @@ def main():
     renderer.render(all_items, str(html_path), display_date=date_str)
     log.result(sum(s["article_count"] for s in all_items), str(html_path))
 
-    if args.pdf:
-        pdf_path = output_dir / f"宏观形势及监管动态每日简报_{date_str}.pdf"
-        renderer.pdf(str(html_path), str(pdf_path))
-        log.info(f"📄 PDF 已生成: {pdf_path}")
+    pdf_path = output_dir / f"宏观形势及监管动态每日简报_{date_str}.pdf"
+    renderer.pdf(str(html_path), str(pdf_path))
+    log.info(f"📄 PDF 已生成: {pdf_path}")
 
 
 if __name__ == "__main__":

@@ -414,7 +414,7 @@ class PbcGovSource(BaseSource):
             return ""
 
         # Section priority: data解读 > 数据发布, keep others
-        KEEP_ORDER = {"数据解读": 0, "数据发布": 1}
+        KEEP_ORDER = {"数据发布": 0, "数据解读": 1}
 
         groups: dict[str, list] = {}
         ungrouped = []

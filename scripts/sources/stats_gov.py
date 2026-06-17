@@ -13,7 +13,6 @@ class StatsGovSource(BaseSource):
     list_urls = [
         "https://www.stats.gov.cn/xw/tjxw/",    # 统计新闻 (tjdt sub-pages now live here)
         "https://www.stats.gov.cn/sj/zxfb/",    # 数据发布
-        "https://www.stats.gov.cn/sj/sjjd/",    # 数据解读
     ]
     sections = ["统计新闻", "统计动态", "数据发布", "数据解读"]
     render_mode = "static"
