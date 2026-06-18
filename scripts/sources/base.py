@@ -97,7 +97,7 @@ class BaseSource(ABC):
         delta = (ref - parsed).days
         if delta < 0:
             return False  # future date — bad parse, skip
-        return delta <= days_back
+        return delta < days_back
 
     def _parse_date(self, date_str: str) -> date | None:
         """Try common Chinese gov date formats. Override if source differs."""

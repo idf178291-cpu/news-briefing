@@ -240,13 +240,18 @@ class Extractor:
         )
 
         data = {}
-        for attempt in range(2):
+        last_raw = ""
+        for attempt in range(3):
             raw = self._call_api(prompt)
+            last_raw = raw
             data = self._parse_json(raw)
             if data.get("summary") and data.get("core_event"):
                 break
-            if attempt == 0:
-                print(f"  ⚠ 摘要缺失，重试中...")
+            if attempt < 2:
+                print(f"  ⚠ 摘要缺失，重试中... (第{attempt+1}次)")
+            else:
+                print(f"  ⚠ 摘要缺失，已达最大重试次数")
+                print(f"  ⚠ 原始响应前200字符: {last_raw[:200]}")
 
         return BriefingItem(
             title=article.title,
