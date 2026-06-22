@@ -4,13 +4,14 @@
 """
 
 import os, sys, json, argparse, time, re
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from contextlib import contextmanager
 
 from scraper import Scraper
 from extractor import Extractor
 from renderer import Renderer
+from mailer import Mailer
 from sources import get_sources, BaseSource, BriefingItem
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -131,7 +132,7 @@ def process_source(source, scraper, extractor, seen_urls, days_back, dry_run, ma
     # 4. dedup vs history + time window
     new_links, skipped_seen, skipped_window = [], 0, 0
     for link in unique_links:
-        if link.url in seen_urls:
+        if ref_date is None and link.url in seen_urls:
             skipped_seen += 1; continue
         if not source.is_within_window(link.date_str, days_back, ref_date):
             skipped_window += 1; continue
@@ -228,10 +229,11 @@ def main():
     parser.add_argument("--output", type=str, default=None)
     parser.add_argument("--max-articles", type=int, default=None)
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--pdf", action="store_true", help="Also generate a PDF version")
     parser.add_argument("--headless", type=bool, default=True)
     parser.add_argument("--ref-date", type=str, default=None,
                         help="Reference date YYYY-MM-DD (default: today)")
+    parser.add_argument("--send-email", action="store_true",
+                        help="Send briefing via email (requires SMTP_* env vars)")
     args = parser.parse_args()
 
     slugs = args.sources.split(",") if args.sources else None
@@ -243,7 +245,7 @@ def main():
         p = Path(args.output)
         state_dir = p; output_dir = p
 
-    log.phase(f"财经新闻每日简报 | 基准日: {args.ref_date or '今天'} | 窗口: {args.days}天 | 源: {', '.join(s.name for s in sources)}")
+    log.phase(f"宏观形势及金融相关管理部门动态每日简报 | 基准日: {args.ref_date or '今天'} | 窗口: {args.days}天 | 源: {', '.join(s.name for s in sources)}")
 
     extractor = None if args.dry_run else Extractor()
 
@@ -279,15 +281,40 @@ def main():
         sys.exit(1)
 
     renderer = Renderer()
-    date_str = args.ref_date if args.ref_date else datetime.now().strftime("%Y-%m-%d")
-    html_path = output_dir / f"宏观形势及监管动态每日简报_{date_str}.html"
+    # 计算日期区间用于文件名
+    if ref_date:
+        window_end = ref_date
+    else:
+        window_end = date.today()
+    window_start = window_end - timedelta(days=args.days - 1)
+    if args.days == 1:
+        date_prefix = window_end.strftime("%Y%m%d")
+    else:
+        date_prefix = f"{window_start.strftime('%Y%m%d')}-{window_end.strftime('%Y%m%d')}"
+    html_path = output_dir / f"{date_prefix}-宏观形势及金融相关管理部门动态每日简报.html"
     output_dir.mkdir(parents=True, exist_ok=True)
-    renderer.render(all_items, str(html_path), display_date=date_str)
+    if args.days == 1:
+        display_date = window_end.strftime("%Y-%m-%d")
+    else:
+        display_date = f"{window_start.strftime('%Y-%m-%d')} ~ {window_end.strftime('%Y-%m-%d')}"
+    renderer.render(all_items, str(html_path), display_date=display_date)
     log.result(sum(s["article_count"] for s in all_items), str(html_path))
 
-    pdf_path = output_dir / f"宏观形势及监管动态每日简报_{date_str}.pdf"
-    renderer.pdf(str(html_path), str(pdf_path))
-    log.info(f"📄 PDF 已生成: {pdf_path}")
+    # ── send email (optional) ──────────────────────────────────
+    if args.send_email:
+        try:
+            mailer = Mailer()
+            source_stats = {s["name"]: s["article_count"] for s in all_items}
+            total = sum(s["article_count"] for s in all_items)
+            mailer.send(
+                html_path=str(html_path),
+                date_str=display_date,
+                source_stats=source_stats,
+                total_articles=total,
+            )
+            log.info("📧 邮件已发送")
+        except Exception as e:
+            log.warn(f"邮件发送失败: {e}")
 
 
 if __name__ == "__main__":
