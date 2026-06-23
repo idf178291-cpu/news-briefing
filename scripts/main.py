@@ -19,35 +19,75 @@ PROJECT_DIR = SCRIPT_DIR.parent
 DEFAULT_STATE_DIR = PROJECT_DIR / "state"
 DEFAULT_OUTPUT_DIR = PROJECT_DIR / "output"
 
-# ── simple phase logger ──────────────────────────────────────
+# ── timestamped file + console logger ─────────────────────────
 class Log:
-    INDENT = 0
-    @staticmethod
-    def phase(msg: str):
-        print(f"\n{'='*56}", flush=True)
-        print(f"  {msg}", flush=True)
-        print(f"{'='*56}", flush=True)
-    @staticmethod
-    def step(msg: str, src: str = ""):
+    def __init__(self):
+        self._file = None
+        self._errors = 0
+        self._source_times: dict[str, float] = {}
+
+    def open_file(self, log_dir: Path):
+        """Attach a date-stamped log file. Call once from main()."""
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / f"briefing_{date.today().isoformat()}.log"
+        self._file = open(str(log_path), "a", encoding="utf-8")
+        self._file.write(f"\n{'─'*56}\n")
+
+    def _ts(self) -> str:
+        return datetime.now().strftime("[%H:%M:%S]")
+
+    def _emit(self, line: str):
+        ts_line = f"{self._ts()} {line}"
+        print(ts_line, flush=True)
+        if self._file:
+            self._file.write(ts_line + "\n")
+            self._file.flush()
+
+    def phase(self, msg: str):
+        bar = "=" * 56
+        self._emit(f"\n{bar}\n  {msg}\n{bar}")
+
+    def step(self, msg: str, src: str = ""):
         prefix = f"[{src}] " if src else ""
-        print(f"  → {prefix}{msg}", flush=True)
-    @staticmethod
-    def ok(msg: str, src: str = ""):
+        self._emit(f"  → {prefix}{msg}")
+
+    def ok(self, msg: str, src: str = ""):
         prefix = f"[{src}] " if src else ""
-        print(f"  ✓ {prefix}{msg}", flush=True)
-    @staticmethod
-    def warn(msg: str, src: str = ""):
+        self._emit(f"  ✓ {prefix}{msg}")
+
+    def warn(self, msg: str, src: str = ""):
+        self._errors += 1
         prefix = f"[{src}] " if src else ""
-        print(f"  ⚠ {prefix}{msg}", flush=True)
-    @staticmethod
-    def info(msg: str):
-        print(f"    {msg}", flush=True)
-    @staticmethod
-    def result(total: int, path: str):
-        print(f"\n{'='*56}", flush=True)
-        print(f"  ✅ 完成! {total} 篇新文章", flush=True)
-        print(f"  📄 {path}", flush=True)
-        print(f"{'='*56}", flush=True)
+        self._emit(f"  ⚠ {prefix}{msg}")
+
+    def info(self, msg: str):
+        self._emit(f"    {msg}")
+
+    def result(self, total: int, path: str):
+        self._emit(f"{'='*56}\n  ✅ 完成! {total} 篇新文章\n  📄 {path}\n{'='*56}")
+
+    def summary(self, sources: list[dict], elapsed: float, errors: int):
+        """Print structured summary for troubleshooting."""
+        self._emit("")
+        self._emit("┌" + "─" * 54 + "┐")
+        self._emit(f"│ 运行汇总" + " " * 46 + "│")
+        self._emit("├" + "─" * 30 + "┬" + "─" * 11 + "┬" + "─" * 11 + "┤")
+        self._emit(f"│ {'数据源':<28s} │ {'文章':>4s} │ {'耗时':>6s} │")
+        self._emit("├" + "─" * 30 + "┼" + "─" * 11 + "┼" + "─" * 11 + "┤")
+        for s in sources:
+            name = s["name"]
+            count = s["article_count"]
+            t = self._source_times.get(s["slug"], 0)
+            self._emit(f"│ {name:<28s} │ {count:>4d} │ {t:>5.0f}s │")
+        self._emit("├" + "─" * 30 + "┴" + "─" * 11 + "┴" + "─" * 11 + "┤")
+        total_articles = sum(s["article_count"] for s in sources)
+        self._emit(f"│ 合计: {total_articles} 篇  总耗时: {elapsed:.0f}s  错误: {errors} 次" + " " * 17 + "│")
+        self._emit("└" + "─" * 54 + "┘")
+
+    def close(self):
+        if self._file:
+            self._file.close()
+            self._file = None
 
 log = Log()
 
@@ -245,17 +285,23 @@ def main():
         p = Path(args.output)
         state_dir = p; output_dir = p
 
+    log.open_file(output_dir / "logs")
+    t_total_start = time.time()
+
     log.phase(f"宏观形势及金融相关管理部门动态每日简报 | 基准日: {args.ref_date or '今天'} | 窗口: {args.days}天 | 源: {', '.join(s.name for s in sources)}")
 
     extractor = None if args.dry_run else Extractor()
+    scraper_errors = 0
 
     try:
         with Scraper(headless=args.headless) as scraper:
             all_items = []
             for source in sources:
+                t_src = time.time()
                 seen_urls = load_seen(state_dir, source.slug)
                 items = process_source(source, scraper, extractor, seen_urls,
                     args.days, args.dry_run, args.max_articles, ref_date)
+                log._source_times[source.slug] = time.time() - t_src
                 for item in items:
                     seen_urls.add(item.url)
                 save_seen(state_dir, source.slug, seen_urls)
@@ -276,6 +322,7 @@ def main():
                     "article_count": len(items),
                 })
     except Exception as e:
+        scraper_errors += 1
         log.warn(f"运行出错: {e}")
         import traceback; traceback.print_exc()
         sys.exit(1)
@@ -315,6 +362,11 @@ def main():
             log.info("📧 邮件已发送")
         except Exception as e:
             log.warn(f"邮件发送失败: {e}")
+
+    # ── summary ─────────────────────────────────────────────────
+    t_total = time.time() - t_total_start
+    log.summary(all_items, t_total, log._errors)
+    log.close()
 
 
 if __name__ == "__main__":
