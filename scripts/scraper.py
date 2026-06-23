@@ -50,32 +50,44 @@ class Scraper:
         return page.content()
 
     def fetch_page(self, url: str, wait_for: str | list[str] | None = None,
-                   wait_ms: int = 3000) -> str:
+                   wait_ms: int = 3000, retries: int = 3) -> str:
         """Navigate to url, return HTML content.
 
         wait_for: CSS selector(s) to wait for. If list, tries each until one matches.
         wait_ms: fallback wait in ms after navigation.
+        retries: max retry attempts on transient network errors (ERR_NETWORK_CHANGED etc.)
         """
-        page: Page = self._browser.new_page()
-        try:
-            page.goto(url, wait_until="commit", timeout=self.timeout)
-            if wait_for:
-                selectors = [wait_for] if isinstance(wait_for, str) else wait_for
-                found = False
-                for sel in selectors:
-                    try:
-                        page.wait_for_selector(sel, timeout=8000)
-                        found = True
-                        break
-                    except Exception:
-                        continue
-                if not found:
+        last_error = None
+        for attempt in range(retries):
+            page: Page = self._browser.new_page()
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
+                if wait_for:
+                    selectors = [wait_for] if isinstance(wait_for, str) else wait_for
+                    found = False
+                    for sel in selectors:
+                        try:
+                            page.wait_for_selector(sel, timeout=8000)
+                            found = True
+                            break
+                        except Exception:
+                            continue
+                    if not found:
+                        page.wait_for_timeout(wait_ms)
+                else:
                     page.wait_for_timeout(wait_ms)
-            else:
-                page.wait_for_timeout(wait_ms)
-            return page.content()
-        finally:
-            page.close()
+                return page.content()
+            except Exception as e:
+                last_error = e
+                if attempt < retries - 1 and ("ERR_NETWORK_CHANGED" in str(e) or "ERR_INTERNET_DISCONNECTED" in str(e) or "ERR_CONNECTION" in str(e)):
+                    print(f"  ⚠ 网络瞬时错误，重试 {attempt + 2}/{retries} ...")
+                    import time
+                    time.sleep(2)
+                else:
+                    raise
+            finally:
+                page.close()
+        raise last_error
 
     def click_load_more(self, url: str, button_selector: str,
                         clicks: int = 3, wait_ms: int = 1500) -> str:
