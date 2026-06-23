@@ -43,9 +43,13 @@ class Scraper:
         """Return page to pool for reuse."""
         self._page_pool.append(page)
 
-    def navigate(self, page: Page, url: str, wait_ms: int = 1000) -> str:
-        """Navigate existing page to url, return HTML. Much faster than new_page+close."""
-        page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
+    def navigate(self, page: Page, url: str, wait_ms: int = 3000) -> str:
+        """Navigate existing page to url, return HTML. Much faster than new_page+close.
+
+        Uses "commit" (not "domcontentloaded") because some legacy gov sub-sites
+        never fire DOMContentLoaded, causing 30s timeouts.
+        """
+        page.goto(url, wait_until="commit", timeout=self.timeout)
         page.wait_for_timeout(wait_ms)
         return page.content()
 
