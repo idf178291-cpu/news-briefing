@@ -159,11 +159,13 @@ class NfraGovSource(BaseSource):
 
         # Date: find "发布时间" specifically, ignore "留言时间"
         date_str = ""
-        # Look for elements containing "发布时间"
         for el in soup.select('[class*=publish], [class*=pubtime], span, font, td, div, p'):
             text = el.get_text(strip=True)
-            if text and "发布时间" in text and len(text) < 200:
-                m = re.search(r'(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})', text)
+            if text and "发布时间" in text:
+                # Extract snippet around "发布时间" — the full text may be huge from nav boilerplate
+                idx = text.index("发布时间")
+                snippet = text[idx:idx + 100]
+                m = re.search(r'(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})', snippet)
                 if m:
                     date_str = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
                     break

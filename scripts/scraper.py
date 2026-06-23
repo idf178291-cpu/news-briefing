@@ -45,7 +45,7 @@ class Scraper:
 
     def navigate(self, page: Page, url: str, wait_ms: int = 1000) -> str:
         """Navigate existing page to url, return HTML. Much faster than new_page+close."""
-        page.goto(url, wait_until="commit", timeout=self.timeout)
+        page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
         page.wait_for_timeout(wait_ms)
         return page.content()
 
