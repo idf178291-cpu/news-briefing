@@ -25,8 +25,9 @@ class PbcGovSource(BaseSource):
         "https://www.pbc.gov.cn/goutongjiaoliu/113456/113469/index.html",
         "https://www.pbc.gov.cn/diaochatongjisi/116219/116225/index.html",
         "https://www.pbc.gov.cn/diaochatongjisi/116219/116227/index.html",
+        "https://www.pbc.gov.cn/zhengcehuobisi/125207/125213/125440/index.html",
     ]
-    sections = ["新闻发布", "统计数据", "数据解读", "调查与分析"]
+    sections = ["新闻发布", "货币政策", "统计数据", "数据解读", "调查与分析"]
     render_mode = "static"
     pagination = "page"
     pagination_max = 5
@@ -37,6 +38,8 @@ class PbcGovSource(BaseSource):
             return self._parse_section_page(html, page_url, "数据解读")
         if "/116227/" in page_url:
             return self._parse_section_page(html, page_url, "调查与分析")
+        if "/125440/" in page_url:
+            return self._parse_monetary_policy_page(html, page_url)
         return self._parse_news_page(html, page_url)
 
     # ── News page (goutongjiaoliu) ────────────────────────────
@@ -69,6 +72,36 @@ class PbcGovSource(BaseSource):
             links.append(ArticleLink(
                 title=title, url=full_url,
                 date_str=date_str, section="新闻发布",
+            ))
+        return links
+
+    # ── 货币政策司 (LPR / 利率政策) ─────────────────────────
+    def _parse_monetary_policy_page(self, html: str, page_url: str) -> list[ArticleLink]:
+        soup = BeautifulSoup(html, "lxml")
+        links = []
+        seen = set()
+
+        for a in soup.select("a[href]"):
+            href = a.get("href", "").strip()
+            if not href or "/125440/" not in href or not href.endswith("/index.html"):
+                continue
+
+            title = a.get_text(strip=True)
+            if not title or len(title) < 8:
+                continue
+
+            full_url = self.make_absolute_url(href, page_url)
+            if full_url in seen:
+                continue
+            seen.add(full_url)
+
+            date_str = self._date_from_adjacent_text(a)
+            if not date_str:
+                date_str = self._date_from_url_timestamp(href)
+
+            links.append(ArticleLink(
+                title=title, url=full_url,
+                date_str=date_str, section="货币政策",
             ))
         return links
 
@@ -260,7 +293,9 @@ class PbcGovSource(BaseSource):
 
         # Section from URL
         section = "新闻发布"
-        if "/116225/" in url:
+        if "/125440/" in url:
+            section = "货币政策"
+        elif "/116225/" in url:
             section = "数据解读"
         elif "/116227/" in url:
             section = "调查与分析"
