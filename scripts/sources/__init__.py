@@ -4,8 +4,9 @@ from .mof_gov import MofGovSource
 from .pbc_gov import PbcGovSource
 from .nfra_gov import NfraGovSource
 from .csrc_gov import CsrcGovSource
+from .gov_cn import GovCnSource
 
-ALL_SOURCES = [NfraGovSource, PbcGovSource, MofGovSource, CsrcGovSource, StatsGovSource]
+ALL_SOURCES = [GovCnSource, NfraGovSource, PbcGovSource, MofGovSource, CsrcGovSource, StatsGovSource]
 
 
 def get_sources(slugs: list[str] | None = None) -> list[BaseSource]:

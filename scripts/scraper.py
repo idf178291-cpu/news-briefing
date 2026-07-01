@@ -43,13 +43,24 @@ class Scraper:
         """Return page to pool for reuse."""
         self._page_pool.append(page)
 
-    def navigate(self, page: Page, url: str, wait_ms: int = 3000) -> str:
+    def navigate(self, page: Page, url: str, wait_ms: int = 3000,
+                  wait_for: str | list[str] | None = None) -> str:
         """Navigate existing page to url, return HTML. Much faster than new_page+close.
 
         Uses "commit" (not "domcontentloaded") because some legacy gov sub-sites
         never fire DOMContentLoaded, causing 30s timeouts.
+        If wait_for is provided, waits up to 8s for the selector before falling
+        back to wait_ms.
         """
         page.goto(url, wait_until="commit", timeout=self.timeout)
+        if wait_for:
+            selectors = [wait_for] if isinstance(wait_for, str) else wait_for
+            for sel in selectors:
+                try:
+                    page.wait_for_selector(sel, timeout=8000)
+                    break
+                except Exception:
+                    continue
         page.wait_for_timeout(wait_ms)
         return page.content()
 
@@ -143,22 +154,28 @@ class Scraper:
         return BeautifulSoup(html, "lxml")
 
     @staticmethod
-    def download_attachments(attachment_links: list[tuple[str, str]]) -> str:
-        """Download attachment files and extract text content.
+    def download_attachments(attachment_links: list[tuple[str, str]]) -> tuple[str, list[dict]]:
+        """Download attachment files, extract text + HTML tables.
 
         attachment_links: list of (url, filename) tuples
-        Returns extracted text appended together, or empty string.
+        Returns (extracted_text, html_tables) where html_tables is
+        [{filename, html, sheet_name}, ...] for spreadsheet files.
         """
         import tempfile, os, re
         try:
             import requests as req
         except ImportError:
             print("[Scraper] requests not available, skipping attachments")
-            return ""
+            return "", []
 
         extracted_parts = []
+        html_tables = []
+        seen_filenames = set()  # dedup identical attachments
         for url, filename in attachment_links:
             try:
+                if filename in seen_filenames:
+                    continue
+                seen_filenames.add(filename)
                 print(f"  [Scraper] 下载附件: {filename}")
                 resp = req.get(url, timeout=30, headers={
                     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
@@ -168,16 +185,17 @@ class Scraper:
                 ext = os.path.splitext(filename)[1].lower()
 
                 text = ""
+                html_table = None
                 if ext in (".pdf",):
                     text = Scraper._extract_pdf(content)
                 elif ext in (".xlsx", ".xls"):
                     text = Scraper._extract_xlsx(content, ext)
+                    html_table = Scraper._extract_spreadsheet_to_html(content, ext, filename)
                 elif ext in (".docx",):
                     text = Scraper._extract_docx(content)
                 elif ext in (".csv", ".txt", ".md"):
                     text = content.decode("utf-8", errors="replace")[:8000]
                 else:
-                    # Try as text
                     try:
                         text = content.decode("utf-8")[:8000]
                     except UnicodeDecodeError:
@@ -186,10 +204,12 @@ class Scraper:
 
                 if text.strip():
                     extracted_parts.append(f"--- {filename} ---\n{text}")
+                if html_table:
+                    html_tables.extend(html_table)
             except Exception as e:
                 print(f"  [Scraper] 附件下载失败 {filename}: {e}")
 
-        return "\n\n".join(extracted_parts)
+        return "\n\n".join(extracted_parts), html_tables
 
     @staticmethod
     def _extract_pdf(content: bytes) -> str:
@@ -216,11 +236,35 @@ class Scraper:
     def _extract_xlsx(content: bytes, ext: str) -> str:
         if ext == ".csv":
             return content.decode("utf-8", errors="replace")[:8000]
+
+        # Old .xls (BIFF/OLE2) — use xlrd
+        if ext == ".xls":
+            try:
+                import xlrd, io
+                wb = xlrd.open_workbook(file_contents=content)
+                parts = []
+                for sn in wb.sheet_names()[:3]:
+                    ws = wb.sheet_by_name(sn)
+                    parts.append(f"[Sheet: {sn}]")
+                    rows = []
+                    for r in range(min(ws.nrows, 30)):
+                        rows.append("\t".join(
+                            str(ws.cell_value(r, c)) if ws.cell_value(r, c) != "" else ""
+                            for c in range(ws.ncols)))
+                    parts.append("\n".join(rows))
+                return "\n".join(parts)[:8000]
+            except ImportError:
+                return ""
+            except Exception as e:
+                print(f"  [Scraper] XLS解析失败: {e}")
+                return ""
+
+        # .xlsx (Open XML) — use openpyxl
         try:
             import openpyxl, io
             wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
             parts = []
-            for sn in wb.sheetnames[:3]:  # first 3 sheets
+            for sn in wb.sheetnames[:3]:
                 ws = wb[sn]
                 parts.append(f"[Sheet: {sn}]")
                 rows = []
@@ -233,6 +277,68 @@ class Scraper:
         except Exception as e:
             print(f"  [Scraper] XLSX解析失败: {e}")
             return ""
+
+    @staticmethod
+    def _extract_spreadsheet_to_html(content: bytes, ext: str, filename: str) -> list[dict]:
+        """Convert spreadsheet to styled HTML tables. Returns [{filename, sheet_name, html}, ...]."""
+        tables = []
+        try:
+            if ext == ".xls":
+                import xlrd
+                wb = xlrd.open_workbook(file_contents=content)
+                for sn in wb.sheet_names():
+                    ws = wb.sheet_by_name(sn)
+                    if ws.nrows == 0:
+                        continue
+                    rows_html = []
+                    for r in range(ws.nrows):
+                        cells = []
+                        tag = "th" if r == 0 else "td"
+                        for c in range(ws.ncols):
+                            v = ws.cell_value(r, c)
+                            s = str(int(v)) if isinstance(v, float) and v == int(v) else str(v)
+                            if s == "0.0":
+                                s = "0"
+                            cells.append(f"<{tag}>{s or '—'}</{tag}>")
+                        rows_html.append(f"<tr>{''.join(cells)}</tr>")
+                    label = f"{filename}" if len(wb.sheet_names()) == 1 else f"{filename} · {sn}"
+                    tables.append({
+                        "filename": filename,
+                        "sheet_name": sn,
+                        "html": f"<table class='data-table'><caption>{label}</caption>"
+                                f"<tbody>{''.join(rows_html)}</tbody></table>",
+                    })
+            else:  # .xlsx
+                import openpyxl, io
+                wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+                for sn in wb.sheetnames:
+                    ws = wb[sn]
+                    rows = list(ws.iter_rows(max_row=100, values_only=True))
+                    if not rows:
+                        continue
+                    rows_html = []
+                    for i, row in enumerate(rows):
+                        cells = []
+                        tag = "th" if i == 0 else "td"
+                        for c in row:
+                            v = c if c is not None else ""
+                            s = str(int(v)) if isinstance(v, float) and v == int(v) else str(v)
+                            if s == "0.0":
+                                s = "0"
+                            cells.append(f"<{tag}>{s or '—'}</{tag}>")
+                        rows_html.append(f"<tr>{''.join(cells)}</tr>")
+                    label = f"{filename}" if len(wb.sheetnames) == 1 else f"{filename} · {sn}"
+                    tables.append({
+                        "filename": filename,
+                        "sheet_name": sn,
+                        "html": f"<table class='data-table'><caption>{label}</caption>"
+                                f"<tbody>{''.join(rows_html)}</tbody></table>",
+                    })
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"  [Scraper] 表格转换失败 {filename}: {e}")
+        return tables
 
     @staticmethod
     def _extract_docx(content: bytes) -> str:

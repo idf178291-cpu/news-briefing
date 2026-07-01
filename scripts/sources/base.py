@@ -19,6 +19,7 @@ class Article:
     source: str
     section: str
     body: str  # raw text content
+    attachment_tables: list[dict] = field(default_factory=list)  # [{filename, sheet_name, html}, ...]
 
 
 TAG_CATEGORIES = [
@@ -41,6 +42,7 @@ class BriefingItem:
     key_points: list[str] = field(default_factory=list)
     summary: str = ""
     tags: list[str] = field(default_factory=list)
+    attachment_tables: list[dict] = field(default_factory=list)  # [{filename, sheet_name, html}, ...]
 
 
 class BaseSource(ABC):

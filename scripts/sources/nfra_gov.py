@@ -18,6 +18,7 @@ class NfraGovSource(BaseSource):
     pagination = "none"
     skip_title_keywords = ["任职资格", "任职批复", "核准任职", "会见", "拟录用", "遴选", "公开招聘", "聘用"]
     WAIT_SELECTORS = ["span.date.ng-binding", "a[href*='ItemDetail.html']"]
+    DETAIL_WAIT_SELECTORS = [".wenzhang-title", ".article-content", "span.date.ng-binding"]
 
     # Direct URLs for each subsection (bypasses SPA shell)
     SECTION_URLS = {

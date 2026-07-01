@@ -227,6 +227,7 @@ class Extractor:
             return BriefingItem(
                 title=article.title, date_str=article.date_str,
                 source=article.source, section=article.section, url=article.url,
+                attachment_tables=article.attachment_tables,
             )
 
         body = article.body[:max_body_chars]
@@ -265,6 +266,7 @@ class Extractor:
             key_points=data.get("key_points", []),
             summary=data.get("summary", ""),
             tags=data.get("tags", []),
+            attachment_tables=article.attachment_tables,
         )
 
     def _parse_json(self, raw: str) -> dict:

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>宏观形势及金融相关管理部门动态每日简报 — {{ date_str }}</title>
+<title>宏观形势及金融相关管理机构动态每日简报 — {{ date_str }}</title>
 <style>
 /* ===================================================================
    Design System — Slate Executive (IE10+ compatible)
@@ -65,11 +65,16 @@ h3 { font-size: 0.95rem; }
 .briefing-header .header-top {
   display: -ms-flexbox; display: flex;
   -ms-flex-pack: justify; justify-content: space-between;
-  -ms-flex-align: end; align-items: flex-end;
+  -ms-flex-align: start; align-items: flex-start;
   -ms-flex-wrap: wrap; flex-wrap: wrap;
 }
-.briefing-header .header-top > * { margin: 8px; }
-.briefing-header .header-top { margin: -8px; }
+.header-meta-col {
+  margin-top: 1.2rem;
+  display: -ms-flexbox; display: flex;
+  -ms-flex-direction: column; flex-direction: column;
+  -ms-flex-align: end; align-items: flex-end;
+  -ms-flex-negative: 0; flex-shrink: 0;
+}
 .briefing-header h1 {
   font-family: "SF Pro Display", -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   font-size: 1.7rem; font-weight: 700;
@@ -79,9 +84,9 @@ h3 { font-size: 0.95rem; }
   display: -ms-flexbox; display: flex;
   -ms-flex-align: center; align-items: center;
   color: #5c606e; font-size: 0.88rem;
-  margin: -12px;
 }
-.briefing-header .header-meta > * { margin: 12px; }
+.briefing-header .header-meta > * { margin-right: 12px; }
+.briefing-header .header-meta > *:last-child { margin-right: 0; }
 .header-meta-item {
   display: -ms-flexbox; display: flex;
   -ms-flex-align: center; align-items: center;
@@ -91,6 +96,14 @@ h3 { font-size: 0.95rem; }
 .header-meta-item .label { color: #9499a5; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
 .header-meta-item .value { font-weight: 600; font-feature-settings: "tnum"; }
 .header-divider { width: 4px; height: 16px; background: #9499a5; opacity: 0.3; border-radius: 2px; }
+.header-editor-row {
+  margin-top: 8px;
+  font-size: 0.88rem;
+  display: -ms-flexbox; display: flex;
+  -ms-flex-align: center; align-items: center;
+}
+.header-editor-row .label { color: #9499a5; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; margin-right: 4px; }
+.header-editor-row .value { font-weight: 600; font-feature-settings: "tnum"; }
 
 /* ===================================================================
    OVERVIEW STRIP (Flexbox fallback for grid)
@@ -142,12 +155,14 @@ h3 { font-size: 0.95rem; }
 .overview-tile.src-nfra::before { background: #7c3aed; }
 .overview-tile.src-csrc::before { background: #dc2626; }
 .overview-tile.src-stats::before{ background: #2563eb; }
+.overview-tile.src-govcn::before{ background: #C59B27; }
 /* Overview-tile count color — per source */
 .overview-tile.src-pbc  .tile-count { color: #b45309; }
 .overview-tile.src-mof  .tile-count { color: #0d9488; }
 .overview-tile.src-nfra .tile-count { color: #7c3aed; }
 .overview-tile.src-csrc .tile-count { color: #dc2626; }
 .overview-tile.src-stats .tile-count { color: #2563eb; }
+.overview-tile.src-govcn .tile-count { color: #8B6914; }
 
 /* ===================================================================
    SOURCE BLOCK
@@ -176,6 +191,7 @@ h3 { font-size: 0.95rem; }
 .source-block-header.src-nfra { border-left-color: #7c3aed; }
 .source-block-header.src-csrc { border-left-color: #dc2626; }
 .source-block-header.src-stats{ border-left-color: #2563eb; }
+.source-block-header.src-govcn{ border-left-color: #C59B27; }
 
 /* section sub-head */
 .section-label {
@@ -214,6 +230,7 @@ h3 { font-size: 0.95rem; }
 .article-card.src-nfra .card-accent { background: #7c3aed; }
 .article-card.src-csrc .card-accent { background: #dc2626; }
 .article-card.src-stats .card-accent { background: #2563eb; }
+.article-card.src-govcn .card-accent { background: #C59B27; }
 
 /* card header row */
 .card-header {
@@ -251,6 +268,7 @@ h3 { font-size: 0.95rem; }
 .card-badge.nfra { background: rgba(124,58,237,0.1);  color: #7c3aed; }
 .card-badge.csrc { background: rgba(220,38,38,0.1);  color: #dc2626; }
 .card-badge.stats{ background: rgba(37,99,235,0.1);  color: #2563eb; }
+.card-badge.govcn{ background: rgba(197,155,39,0.12); color: #8B6914; }
 
 /* tags */
 .card-tags {
@@ -268,7 +286,6 @@ h3 { font-size: 0.95rem; }
 }
 .tag-领导讲话 { background: rgba(217,119,6,0.08); color: #b45309; }
 .tag-对外交流 { background: rgba(37,99,235,0.08); color: #1d4ed8; }
-.tag-政策发布 { background: rgba(9,133,81,0.08); color: #065f46; }
 .tag-政策解读 { background: rgba(99,102,241,0.08); color: #5b21b6; }
 .tag-数据发布 { background: rgba(37,99,235,0.07); color: #1e40af; }
 .tag-监管动态 { background: rgba(220,38,38,0.08); color: #991b1b; }
@@ -283,6 +300,8 @@ h3 { font-size: 0.95rem; }
 .tag-统计动态 { background: rgba(219,39,119,0.06); color: #9f1239; }
 .tag-财政新闻 { background: rgba(13,148,136,0.06); color: #0f766e; }
 .tag-证监会要闻 { background: rgba(220,38,38,0.06); color: #b91c1c; }
+.tag-最新政策 { background: rgba(197,155,39,0.10); color: #8B6914; }
+.tag-政策发布 { background: rgba(197,155,39,0.08); color: #8B6914; }
 
 /* body content */
 .card-core-event {
@@ -305,6 +324,50 @@ h3 { font-size: 0.95rem; }
 .card-source-link { margin-top: 8px; font-size: 0.8rem; }
 .card-source-link a { color: #9499a5; text-decoration: none; font-weight: 500; transition: color 0.15s; }
 .card-source-link a:hover { color: #1d4ed8; }
+
+/* attachment data tables */
+.card-attachments {
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid #e4e6ec;
+}
+.attachments-label {
+  font-size: 0.72rem; font-weight: 600; color: #9499a5;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.data-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.78rem; line-height: 1.5;
+  margin-bottom: 12px;
+  background: #fafbfc;
+  border: 1px solid #e4e6ec;
+  border-radius: 4px;
+  overflow: hidden;
+  display: block;
+  overflow-x: auto;
+}
+.data-table caption {
+  font-size: 0.75rem; font-weight: 600; color: #5c606e;
+  padding: 6px 10px; text-align: left;
+  background: #f0f1f4; border-bottom: 1px solid #e4e6ec;
+}
+.data-table th, .data-table td {
+  padding: 4px 10px; text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid #eef0f3;
+}
+.data-table th {
+  background: #f0f1f4; color: #5c606e;
+  font-size: 0.72rem; font-weight: 600;
+  position: sticky; top: 0;
+}
+.data-table td {
+  color: #1e2028; font-feature-settings: "tnum";
+}
+.data-table td:first-child, .data-table th:first-child {
+  text-align: left; font-weight: 500;
+}
+.data-table tbody tr:hover td { background: #f7f8fb; }
 
 /* ===================================================================
    FOOTER
@@ -366,6 +429,10 @@ body.pdf-mode .briefing-header .header-meta { font-size: 0.72rem; margin: -6px; 
 body.pdf-mode .briefing-header .header-meta > * { margin: 6px; }
 body.pdf-mode .header-meta-item .label { font-size: 0.6rem; }
 body.pdf-mode .header-divider { height: 12px; width: 2px; background: #9499a5; }
+body.pdf-mode .header-meta { font-size: 0.68rem; }
+body.pdf-mode .header-editor-row { margin-top: 4px; font-size: 0.62rem; }
+body.pdf-mode .header-editor-row .label { font-size: 0.55rem; }
+body.pdf-mode .header-editor-row .value { font-size: 0.6rem; }
 
 /* overview strip */
 body.pdf-mode .overview-strip {
@@ -453,6 +520,13 @@ body.pdf-mode .card-summary {
 
 body.pdf-mode .card-source-link { display: none; }
 
+body.pdf-mode .card-attachments { margin-top: 6px; padding-top: 6px; }
+body.pdf-mode .attachments-label { font-size: 0.6rem; margin-bottom: 4px; }
+body.pdf-mode .data-table { font-size: 0.62rem; margin-bottom: 6px; }
+body.pdf-mode .data-table caption { font-size: 0.6rem; padding: 3px 8px; }
+body.pdf-mode .data-table th, body.pdf-mode .data-table td { padding: 2px 6px; }
+body.pdf-mode .data-table th { font-size: 0.58rem; }
+
 /* footer */
 body.pdf-mode .briefing-footer {
   margin-top: 16px;
@@ -501,21 +575,27 @@ body.pdf-mode .briefing-footer {
        ================================================================ -->
   <header class="briefing-header">
     <div class="header-top">
-      <h1>宏观形势及金融相关管理部门动态每日简报</h1>
-      <div class="header-meta">
-        <div class="header-meta-item">
-          <span class="label">日期</span>
-          <span class="value">{{ date_str }}</span>
+      <h1>宏观形势及金融相关管理机构动态每日简报</h1>
+      <div class="header-meta-col">
+        <div class="header-meta">
+          <div class="header-meta-item">
+            <span class="label">日期</span>
+            <span class="value">{{ date_str }}</span>
+          </div>
+          <div class="header-divider"></div>
+          <div class="header-meta-item">
+            <span class="label">数据源</span>
+            <span class="value">{{ sources|length }} 个机构</span>
+          </div>
+          <div class="header-divider"></div>
+          <div class="header-meta-item">
+            <span class="label">文章</span>
+            <span class="value">{{ total_articles }} 篇</span>
+          </div>
         </div>
-        <div class="header-divider"></div>
-        <div class="header-meta-item">
-          <span class="label">数据源</span>
-          <span class="value">{{ sources|length }} 个机构</span>
-        </div>
-        <div class="header-divider"></div>
-        <div class="header-meta-item">
-          <span class="label">文章</span>
-          <span class="value">{{ total_articles }} 篇</span>
+        <div class="header-editor-row">
+          <span class="label">编辑</span>
+          <span class="value">总行风险管理部风险报告处、风险计量中心计量四处</span>
         </div>
       </div>
     </div>

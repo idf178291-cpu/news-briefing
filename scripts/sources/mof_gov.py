@@ -10,7 +10,11 @@ class MofGovSource(BaseSource):
     slug = "mof"
     base_url = "https://www.mof.gov.cn"
     list_url = "https://www.mof.gov.cn/zhengwuxinxi/"
-    sections = ["财政新闻"]
+    list_urls = [
+        "https://www.mof.gov.cn/zhengwuxinxi/",
+        "https://www.mof.gov.cn/zhengwuxinxi/zhengcefabu/",
+    ]
+    sections = ["财政新闻", "政策发布"]
     render_mode = "static"
     pagination = "none"
 
@@ -34,9 +38,15 @@ class MofGovSource(BaseSource):
             # Skip external / non-news links
             if any(d in href for d in self.SKIP_DOMAINS):
                 continue
-            # Only caizhengxinwen section
-            if "/caizhengxinwen/" not in href:
-                continue
+            # Determine section based on page URL
+            if "/zhengcefabu/" in page_url:
+                section = "政策发布"
+                if "/zhengcefabu/" not in href and "/caizhengxinwen/" not in href:
+                    continue
+            else:
+                section = "财政新闻"
+                if "/caizhengxinwen/" not in href:
+                    continue
 
             full_url = self.make_absolute_url(href, page_url)
             if full_url in seen:
@@ -57,7 +67,7 @@ class MofGovSource(BaseSource):
                 title=title,
                 url=full_url,
                 date_str=date_str,
-                section="财政新闻",
+                section=section,
             ))
 
         return links

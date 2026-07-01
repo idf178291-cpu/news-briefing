@@ -191,21 +191,26 @@ def process_source(source, scraper, extractor, seen_urls, days_back, dry_run, ma
     try:
         for i, link in enumerate(new_links):
             try:
-                html = scraper.navigate(page, link.url)
+                html = scraper.navigate(page, link.url,
+                    wait_for=getattr(source, "DETAIL_WAIT_SELECTORS", None))
                 article = source.parse_article_page(html, link.url)
                 if article:
                     article.source = slug
                     if link.section:
                         article.section = link.section
+                    if not article.title:
+                        article.title = link.title
                     if not article.date_str:
                         article.date_str = link.date_str
                     # Download and extract attachments
                     soup = scraper.to_soup(html)
                     atts = source.find_attachments(soup, source.base_url, article.url)
                     if atts:
-                        att_text = scraper.download_attachments(atts)
+                        att_text, att_tables = scraper.download_attachments(atts)
                         if att_text:
                             article.body += "\n\n【附件内容】\n" + att_text
+                        if att_tables:
+                            article.attachment_tables = att_tables
                     articles.append(article)
                 else:
                     log.info(f"[{i+1}/{len(new_links)}] 跳过(非新闻): {link.title[:35]}")
@@ -229,7 +234,8 @@ def process_source(source, scraper, extractor, seen_urls, days_back, dry_run, ma
     if dry_run or extractor is None:
         items = [BriefingItem(title=a.title, date_str=a.date_str, source=a.source,
                               section=a.section, url=a.url,
-                              tags=[a.section] if a.section else []) for a in articles]
+                              tags=[a.section] if a.section else [],
+                              attachment_tables=a.attachment_tables) for a in articles]
     else:
         items = []
         skipped_llm = 0
@@ -244,6 +250,9 @@ def process_source(source, scraper, extractor, seen_urls, days_back, dry_run, ma
                 # Auto-add section name as tag
                 if a.section and a.section not in item.tags:
                     item.tags.insert(0, a.section)
+                # For statistics tables, use LLM core_event as descriptive title
+                if a.section == "统计数据" and item.core_event.strip():
+                    item.title = item.core_event
                 items.append(item)
             except Exception as e:
                 log.warn(f"LLM出错: {e}", slug)
@@ -288,7 +297,7 @@ def main():
     log.open_file(output_dir / "logs")
     t_total_start = time.time()
 
-    log.phase(f"宏观形势及金融相关管理部门动态每日简报 | 基准日: {args.ref_date or '今天'} | 窗口: {args.days}天 | 源: {', '.join(s.name for s in sources)}")
+    log.phase(f"宏观形势及金融相关管理机构动态每日简报 | 基准日: {args.ref_date or '今天'} | 窗口: {args.days}天 | 源: {', '.join(s.name for s in sources)}")
 
     extractor = None if args.dry_run else Extractor()
     scraper_errors = 0
@@ -338,7 +347,7 @@ def main():
         date_prefix = window_end.strftime("%Y%m%d")
     else:
         date_prefix = f"{window_start.strftime('%Y%m%d')}-{window_end.strftime('%Y%m%d')}"
-    html_path = output_dir / f"{date_prefix}-宏观形势及金融相关管理部门动态每日简报.html"
+    html_path = output_dir / f"{date_prefix}-宏观形势及金融相关管理机构动态每日简报.html"
     output_dir.mkdir(parents=True, exist_ok=True)
     if args.days == 1:
         display_date = window_end.strftime("%Y-%m-%d")

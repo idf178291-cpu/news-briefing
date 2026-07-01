@@ -28,6 +28,11 @@ class PbcGovSource(BaseSource):
         "https://www.pbc.gov.cn/zhengcehuobisi/125207/125213/125440/index.html",
     ]
     sections = ["新闻发布", "货币政策", "统计数据", "数据解读", "调查与分析"]
+    skip_title_keywords = [
+        "任职资格", "任职批复", "核准任职", "会见", "拟录用", "遴选", "公开招聘", "聘用",
+        "党建", "党员", "两优一先", "先进基层党组织", "优秀共产党员", "优秀党务工作者",
+        "光荣在党", "纪念章", "表彰大会", "表彰名单",
+    ]
     render_mode = "static"
     pagination = "page"
     pagination_max = 5
@@ -77,32 +82,67 @@ class PbcGovSource(BaseSource):
 
     # ── 货币政策司 (LPR / 利率政策) ─────────────────────────
     def _parse_monetary_policy_page(self, html: str, page_url: str) -> list[ArticleLink]:
+        """Two-level drill-down: top page lists sub-categories (e.g. 住房贷款利率),
+        each sub-category page lists individual dated releases. We collect the leaves."""
+        import requests as _req
         soup = BeautifulSoup(html, "lxml")
         links = []
         seen = set()
 
+        # Step 1: find sub-category links on the top page
+        subcats = []
         for a in soup.select("a[href]"):
             href = a.get("href", "").strip()
             if not href or "/125440/" not in href or not href.endswith("/index.html"):
                 continue
-
             title = a.get_text(strip=True)
-            if not title or len(title) < 8:
+            if not title or len(title) < 6:
                 continue
-
             full_url = self.make_absolute_url(href, page_url)
             if full_url in seen:
                 continue
             seen.add(full_url)
+            subcats.append((title, full_url))
 
-            date_str = self._date_from_adjacent_text(a)
-            if not date_str:
-                date_str = self._date_from_url_timestamp(href)
+        # Step 2: for each sub-category, drill down to leaf articles
+        headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+        leaf_seen = set()
+        for cat_title, cat_url in subcats:
+            try:
+                resp = _req.get(cat_url, timeout=15, headers=headers)
+                resp.encoding = "utf-8"
+                cat_soup = BeautifulSoup(resp.text, "lxml")
 
-            links.append(ArticleLink(
-                title=title, url=full_url,
-                date_str=date_str, section="货币政策",
-            ))
+                for a in cat_soup.select("a[href]"):
+                    href = a.get("href", "").strip()
+                    if not href or not href.endswith("/index.html"):
+                        continue
+                    text = a.get_text(strip=True)
+                    if not text or len(text) < 8:
+                        continue
+
+                    full_url = self.make_absolute_url(href, cat_url)
+                    # Skip the sub-category self-link
+                    if full_url == cat_url or full_url in leaf_seen:
+                        continue
+
+                    # Date: prefer URL timestamp, fallback to text
+                    date_str = self._date_from_url_timestamp(href)
+                    if not date_str:
+                        date_str = self._date_from_title(text)
+                    if not date_str:
+                        tm = re.search(r'(\d{4}-\d{2}-\d{2})', text)
+                        if tm:
+                            date_str = tm.group(1)
+
+                    leaf_seen.add(full_url)
+                    links.append(ArticleLink(
+                        title=text, url=full_url,
+                        date_str=date_str, section="货币政策",
+                    ))
+            except Exception as e:
+                print(f"  [PBC] 货币政策子页 {cat_title[:20]} 出错: {e}")
+
         return links
 
     # ── Section pages (数据解读 / 调查与分析) ──────────────────
@@ -340,6 +380,21 @@ class PbcGovSource(BaseSource):
                 if t and len(t) > 4:
                     title = t
                     break
+        if not title:
+            # Fallback: first row's full text (handles merged cells), prefer Chinese
+            import re as _re
+            for tr in soup.select("table tr")[:3]:
+                t = tr.get_text(" ", strip=True)
+                if t and len(t) > 8:
+                    # Extract the meaningful part: strip leading/trailing whitespace,
+                    # and if mixed Chinese-English, keep the whole thing
+                    # Try to find the Chinese-containing segment
+                    cn_m = _re.search(r'[\w\s]*[一-鿿][\w\s一-鿿\d%（）()，,./：:]+', t)
+                    if cn_m:
+                        title = cn_m.group().strip()
+                        break
+                    title = t
+                    break
 
         date_str = self._date_from_attach_url(url)
 
@@ -432,8 +487,15 @@ class PbcGovSource(BaseSource):
 
     # ── dedup: 数据发布 vs 数据解读 ─────────────────────────
     def deduplicate_items(self, items: list) -> list:
-        """Remove 数据发布 items that overlap with 数据解读 on the same data."""
-        # Extract data-period key from title: "2026年5月", "2026年一季度", etc
+        """Remove 数据发布 items that overlap with 数据解读 on the same data.
+
+        Only applies to 数据发布/数据解读 sections — 统计数据 items (unique tables) are
+        never deduplicated against each other.
+        """
+        # Only deduplicate 数据发布 vs 数据解读; keep everything else as-is
+        dedup_items = [i for i in items if i.section in ("数据发布", "数据解读")]
+        keep_items = [i for i in items if i.section not in ("数据发布", "数据解读")]
+
         def _period_key(item) -> str:
             t = item.title + item.core_event
             m = re.search(r'(\d{4})年(\d{1,2})月', t)
@@ -453,14 +515,14 @@ class PbcGovSource(BaseSource):
 
         groups: dict[str, list] = {}
         ungrouped = []
-        for item in items:
+        for item in dedup_items:
             key = _period_key(item)
             if key:
                 groups.setdefault(key, []).append(item)
             else:
                 ungrouped.append(item)
 
-        result = list(ungrouped)
+        result = keep_items + list(ungrouped)
         for key, group in groups.items():
             if len(group) == 1:
                 result.extend(group)
