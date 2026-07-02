@@ -56,6 +56,7 @@ class BaseSource(ABC):
     pagination_max: int = 1  # max page clicks / load-more clicks
     encoding: str = "utf-8"
     list_urls: list[str] = []  # multiple list URLs (merged into one source)
+    date_tolerance_days: int = 0  # extra days to accept at list stage (URL date may differ from publish date)
     skip_title_keywords: list[str] = ["人员招聘", "人事任免", "任职资格", "会见", "拟录用", "遴选", "公开招聘", "聘用"]  # filter out articles whose title contains these
 
     @staticmethod

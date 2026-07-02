@@ -15,6 +15,7 @@ class MofGovSource(BaseSource):
         "https://www.mof.gov.cn/zhengwuxinxi/zhengcefabu/",
     ]
     sections = ["财政新闻", "政策发布"]
+    date_tolerance_days = 1  # URL date (tYYYYMMDD_) may be 1 day before actual publish date
     render_mode = "static"
     pagination = "none"
 
@@ -35,33 +36,35 @@ class MofGovSource(BaseSource):
             if not title or len(title) < 8:
                 continue
 
-            # Skip external / non-news links
+            # Skip external / non-news / non-article links
             if any(d in href for d in self.SKIP_DOMAINS):
+                continue
+            # MOF article URLs contain /tYYYYMMDD_<id>.htm pattern
+            if not re.search(r'/t\d{8}_\d+\.htm', href):
                 continue
             # Determine section based on page URL
             if "/zhengcefabu/" in page_url:
                 section = "政策发布"
-                if "/zhengcefabu/" not in href and "/caizhengxinwen/" not in href:
+                if "/zhengcefabu/" not in href and "/caizhengxinwen/" not in href and "/ywgg/" not in href:
                     continue
             else:
                 section = "财政新闻"
-                if "/caizhengxinwen/" not in href:
-                    continue
+                # Main page features articles from all subdomains; don't filter by path
 
             full_url = self.make_absolute_url(href, page_url)
             if full_url in seen:
                 continue
             seen.add(full_url)
 
-            date_str = self._date_from_url(href)
-
-            # Try to find date in adjacent element
+            # Prefer displayed date over URL date (they can differ by days)
+            date_str = ""
+            parent = a.parent
+            if parent:
+                date_span = parent.select_one(".date, .time, span:last-child")
+                if date_span:
+                    date_str = date_span.get_text(strip=True)
             if not date_str:
-                parent = a.parent
-                if parent:
-                    date_span = parent.select_one(".date, .time, span:last-child")
-                    if date_span:
-                        date_str = date_span.get_text(strip=True)
+                date_str = self._date_from_url(href)
 
             links.append(ArticleLink(
                 title=title,
@@ -77,17 +80,30 @@ class MofGovSource(BaseSource):
 
         title_el = soup.select_one(".xw-tit") or soup.select_one("h1") or soup.select_one("title")
         title = title_el.get_text(strip=True) if title_el else ""
+        # Strip suffix like "-财政部网站" but not internal hyphens like "世界银行-中国"
         if title and "-" in title:
-            title = title.rsplit("-", 1)[0].strip()
+            suffix = title.rsplit("-", 1)[-1].strip()
+            if len(suffix) <= 8:  # short suffix = site name, not part of title
+                title = title.rsplit("-", 1)[0].strip()
 
-        # Date
+        # Date: prefer dedicated selectors, then look for "发布日期" in page text
         date_str = ""
-        date_el = soup.select_one(".xw-time") or soup.select_one(".time") or soup.find(string=re.compile(r"\d{4}年\d{1,2}月\d{1,2}日"))
+        date_el = soup.select_one(".xw-time") or soup.select_one(".time")
         if date_el:
-            raw = date_el.get_text(strip=True) if hasattr(date_el, "get_text") else str(date_el)
+            raw = date_el.get_text(strip=True)
             m = re.search(r'(\d{4})年(\d{1,2})月(\d{1,2})日', raw)
             if m:
                 date_str = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+        if not date_str:
+            # Search for "发布日期" — only look at text after the label
+            for el in soup.select("div, span, td, p, font"):
+                text = el.get_text(strip=True)
+                idx = text.find("发布日期")
+                if idx >= 0:
+                    m = re.search(r'(\d{4})年(\d{1,2})月(\d{1,2})日', text[idx:])
+                    if m:
+                        date_str = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+                        break
 
         # Body
         body_parts = []

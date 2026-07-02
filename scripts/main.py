@@ -174,7 +174,8 @@ def process_source(source, scraper, extractor, seen_urls, days_back, dry_run, ma
     for link in unique_links:
         if ref_date is None and link.url in seen_urls:
             skipped_seen += 1; continue
-        if not source.is_within_window(link.date_str, days_back, ref_date):
+        if not source.is_within_window(link.date_str,
+                days_back + getattr(source, "date_tolerance_days", 0), ref_date):
             skipped_window += 1; continue
         new_links.append(link)
     if max_articles and len(new_links) > max_articles:
