@@ -109,6 +109,111 @@ def save_seen(state_dir: Path, slug: str, urls: set[str]):
     }, ensure_ascii=False, indent=2))
 
 
+# ── global dedup ─────────────────────────────────────────────
+# Section priority: policy documents > interpretation > news
+SECTION_PRIORITY = {
+    "政策法规": 1, "政策发布": 2, "最新政策": 2, "通知公告": 3,
+    "政策解读": 4, "新闻发布": 5, "财政新闻": 5, "监管动态": 5,
+    "统计数据": 5, "新闻发布会及访谈": 5, "领导活动及讲话": 5,
+}
+INSTITUTION_NAMES = [
+    "国家金融监督管理总局", "中国人民银行", "财政部",
+    "证监会", "国家统计局", "国务院", "国家发展改革委",
+    "金融监管总局", "人民银行",
+]
+
+
+def _longest_common_substring(s1: str, s2: str) -> str:
+    """Return the longest common contiguous substring. O(n*m) for short titles."""
+    if not s1 or not s2:
+        return ""
+    best = ""
+    for i in range(len(s1)):
+        for j in range(len(s2)):
+            k = 0
+            while (i + k < len(s1) and j + k < len(s2)
+                   and s1[i + k] == s2[j + k]):
+                k += 1
+            if k > len(best):
+                best = s1[i:i + k]
+    return best
+
+
+def _title_has_overlap(a, b) -> bool:
+    """Two titles cover the same event if their core content (after stripping
+    institution names) shares a significant phrase."""
+    # Strip institution names from both titles before comparing
+    at, bt = a.title, b.title
+    for name in INSTITUTION_NAMES:
+        at = at.replace(name, "")
+        bt = bt.replace(name, "")
+    lcs = _longest_common_substring(at, bt)
+    # Core event phrase must be >= 8 chars
+    return len(lcs) >= 8
+
+
+def _keep_better(a, b):
+    """Pick the more informative article: higher section priority, longer body."""
+    return max(a, b, key=_item_sort_key)
+
+
+def _item_sort_key(item):
+    """Sort key: lower section priority number is better, longer summary is better."""
+    return (-SECTION_PRIORITY.get(item.section, 99), len(item.summary))
+
+
+def _deduplicate_items(items: list) -> list:
+    """Two-layer dedup: exact title match, then substring overlap within same source."""
+    if len(items) <= 1:
+        return items
+
+    # Layer 1: exact title match → keep better
+    seen: dict[str, object] = {}
+    layer1 = []
+    for item in items:
+        key = item.title.strip()
+        if key in seen:
+            seen[key] = _keep_better(seen[key], item)
+        else:
+            seen[key] = item
+            layer1.append(item)
+
+    # Layer 2: title substring overlap (same source only) → union-find groups
+    if len(layer1) <= 1:
+        return layer1
+
+    n = len(layer1)
+    parent = list(range(n))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x, y):
+        rx, ry = find(x), find(y)
+        if rx != ry:
+            parent[rx] = ry
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if layer1[i].source != layer1[j].source:
+                continue
+            if layer1[i].title.strip() == layer1[j].title.strip():
+                continue  # handled in layer 1
+            if _title_has_overlap(layer1[i], layer1[j]):
+                union(i, j)
+
+    # Collect groups
+    groups: dict[int, list] = {}
+    for i in range(n):
+        root = find(i)
+        groups.setdefault(root, []).append(layer1[i])
+
+    return [max(g, key=_item_sort_key) for g in groups.values()]
+
+
 # ── per-source pipeline ──────────────────────────────────────
 def process_source(source, scraper, extractor, seen_urls, days_back, dry_run, max_articles, ref_date=None):
     slug = source.slug
@@ -265,7 +370,13 @@ def process_source(source, scraper, extractor, seen_urls, days_back, dry_run, ma
         before = len(items)
         items = source.deduplicate_items(items)
         if len(items) < before:
-            log.info(f"去重: {before - len(items)} 篇重复")
+            log.info(f"去重(源): {before - len(items)} 篇重复")
+
+    # 9. global dedup — same topic across different sections/angles
+    before = len(items)
+    items = _deduplicate_items(items)
+    if len(items) < before:
+        log.info(f"去重(全局): {before - len(items)} 篇重复")
 
     log.ok(f"{len(items)} 篇 ({time.time()-t0:.1f}s)", slug)
     return items
