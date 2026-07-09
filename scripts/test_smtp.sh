@@ -1,13 +1,9 @@
 #!/bin/bash
 # 快速 SMTP 测试 — 发一封纯文本测试邮件
+# 从外部配置文件加载凭据，不硬编码
 set -e
 
-export SMTP_HOST="smtp.qiye.aliyun.com"
-export SMTP_PORT="465"
-export SMTP_USER="wangkangyu@bank-risk.cn"
-export SMTP_PASS="wangkangyu123"
-export SMTP_FROM="wangkangyu@bank-risk.cn"
-export SMTP_TO="wangkangyu.zh@ccb.com"
+source ~/.openclaw/smtp_env
 
 TMP_HTML=$(mktemp /tmp/news_briefing_test_XXXXXX.html)
 cat > "$TMP_HTML" << 'HTMLEOF'

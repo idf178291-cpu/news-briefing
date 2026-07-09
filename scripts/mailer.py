@@ -50,11 +50,13 @@ class Mailer:
 
     @staticmethod
     def _ssl_context():
-        """Permissive SSL context — corporate SMTP certs often fail strict verification."""
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        return ctx
+        """Return SSL context. Use insecure only if SMTP_INSECURE_SSL=1 is explicitly set."""
+        if os.environ.get("SMTP_INSECURE_SSL") == "1":
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            return ctx
+        return ssl.create_default_context()
 
     def send(self, html_path: str, date_str: str,
              source_stats: dict[str, int], total_articles: int) -> bool:
